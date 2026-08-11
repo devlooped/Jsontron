@@ -1,8 +1,8 @@
 # Changelog
 
-## [v0.1.0](https://github.com/devlooped/Jsontron/tree/v0.1.0) (2026-08-11)
+## [v0.1.1](https://github.com/devlooped/Jsontron/tree/v0.1.1) (2026-08-11)
 
-[Full Changelog](https://github.com/devlooped/Jsontron/compare/c31213135636b8c7d0c4d60e596b3d22e742a323...v0.1.0)
+[Full Changelog](https://github.com/devlooped/Jsontron/compare/c31213135636b8c7d0c4d60e596b3d22e742a323...v0.1.1)
 
 :sparkles: Implemented enhancements:
 
