@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/Jsontron/Jsontron.csproj" />
+  <Project Path="src/Tests/Tests.csproj" />
+</Solution>
