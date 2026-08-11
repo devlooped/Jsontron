@@ -3,6 +3,7 @@
   "$id": "https://www.schemastore.org/jsontron-0.1.json",
   "title": "Jsontron 0.1",
   "description": "Jsontron vocabulary: Schematron-like rules and assert keywords over JSON Schema, using jq expressions.",
+  "type": "object",
   "properties": {
     "rules": {
       "type": "array",
