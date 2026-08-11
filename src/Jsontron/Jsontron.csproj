@@ -5,9 +5,14 @@
     <PackageId>Jsontron</PackageId>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Devlooped.JQSharp" Version="1.0.2" />
+    <PackageReference Include="JsonSchema.Net" Version="9.4.0" />
     <PackageReference Include="NuGetizer" Version="1.5.0">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\schemas\jsontron-0.1.json" Link="MetaSchemas\jsontron-0.1.json" />
   </ItemGroup>
 </Project>
