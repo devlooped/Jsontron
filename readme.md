@@ -1,4 +1,5 @@
-# Jsontron
+![Icon](assets/img/icon-32.png) Jsontron
+============
 
 [![Version](https://img.shields.io/nuget/vpre/Jsontron.svg?color=royalblue)](https://www.nuget.org/packages/Jsontron)
 [![Downloads](https://img.shields.io/nuget/dt/Jsontron.svg?color=darkmagenta)](https://www.nuget.org/packages/Jsontron)
