@@ -18,8 +18,227 @@ OSMF tier. A single fee covers all of [Devlooped packages](https://www.nuget.org
 
 <!-- https://github.com/devlooped/.github/raw/main/osmf.md -->
 <!-- #content -->
-## Usage
-*Jsontron*
+## Overview
+
+JSON Schema is excellent at *shape*: types, required fields, formats, enums.
+It is awkward at *business rules* that cross fields, compare against policy at
+the document root, or select a subset of nodes and assert something about each.
+
+**Jsontron** adds that missing layer on top of
+[JsonSchema.Net](https://www.nuget.org/packages/JsonSchema.Net): Schematron-style
+`rules` / `assert` keywords whose `context` and `test` expressions are
+[jq](https://jqlang.org), evaluated by
+[Devlooped.JQSharp](https://www.nuget.org/packages/Devlooped.JQSharp).
+
+- Structural validation stays with JSON Schema.
+- Cross-cutting rules stay in the schema, next to the data they describe.
+- jq expressions are parsed once when the schema is built, then reused.
+
+## Quick start
+
+```csharp
+using System.Text.Json;
+using Json.Schema;
+using Jsontron;
+
+// Once per process — extends Dialect.Default with rules/assert
+MetaSchemas.Register();
+
+var schema = JsonSchema.FromText(
+    """
+    {
+      "type": "object",
+      "required": [ "orders", "policy", "approvedCustomers" ],
+      "rules": [
+        {
+          "context": ".orders[] | select(.total > 1000)",
+          "asserts": [
+            {
+              "test": ".discount >= ($root.policy.minHighValueDiscount // 0.1)",
+              "message": "High-value order \\(.id // \"?\") discount \\(.discount) is below policy"
+            },
+            {
+              "test": ".customer.id | IN($root.approvedCustomers[])",
+              "message": "Customer \\(.customer.id) is not on the approved list"
+            }
+          ]
+        }
+      ]
+    }
+    """);
+
+using var doc = JsonDocument.Parse(
+    """
+    {
+      "policy": { "minHighValueDiscount": 0.15 },
+      "approvedCustomers": [ "acme", "globex" ],
+      "orders": [
+        {
+          "id": "O-1001",
+          "total": 2500,
+          "discount": 0.05,
+          "customer": { "id": "initech" }
+        },
+        {
+          "id": "O-1002",
+          "total": 80,
+          "discount": 0,
+          "customer": { "id": "unknown" }
+        }
+      ]
+    }
+    """);
+
+var result = schema.Evaluate(
+    doc.RootElement,
+    new EvaluationOptions { OutputFormat = OutputFormat.List });
+
+// O-1001 fails both asserts (discount + customer).
+// O-1002 is ignored by the rule (total ≤ 1000).
+Console.WriteLine(result.IsValid); // False
+```
+
+## Why jq?
+
+jq already knows how to walk JSON: filter arrays, default missing fields, compare
+values, and build messages with string interpolation. Jsontron reuses that instead
+of inventing another expression language.
+
+| Idea | In Jsontron |
+|------|-------------|
+| Select nodes to check | `context` — jq filter over the **current instance** |
+| Predicate that must hold | `asserts[].test` — jq filter with `.` = each context node |
+| Human-readable failure | `asserts[].message` — jq expression → string |
+| Document root | `$root` (always bound for context, test, and message) |
+
+An assert **fails** when the test is not jq-truthy (`false`, `null`, or an empty
+stream) — the same idea as Schematron `assert`.
+
+## Keywords
+
+### `rules`
+
+Full form: an array of rules. Each rule picks context nodes, then runs one or more asserts.
+
+```json
+{
+  "rules": [
+    {
+      "context": ".lineItems[] | select(.sku | startswith(\"PROMO-\"))",
+      "asserts": [
+        {
+          "test": ".qty <= ($root.promotions[.sku].maxQty // 1)",
+          "message": "Promo \\(.sku) allows at most \\($root.promotions[.sku].maxQty // 1), got \\(.qty)"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### `assert` (sugar for `context: "."`)
+
+When the rule is “about this node,” skip the full `rules` array:
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "email": { "type": "string", "format": "email" },
+    "age": { "type": "integer", "minimum": 0 }
+  },
+  "assert": ".age >= 18 or (.guardianEmail | type) == \"string\""
+}
+```
+
+Forms accepted:
+
+| JSON | Meaning |
+|------|---------|
+| `"assert": "<jq>"` | One assert; test and message source are that expression |
+| `"assert": { "test", "message" }` | Explicit message (still a jq string expression) |
+| `"assert": [ ... ]` | Several asserts, all on the same `context: "."` rule |
+
+```json
+{
+  "assert": [
+    ".status | IN([\"draft\", \"submitted\", \"approved\"])",
+    {
+      "test": ".status != \"approved\" or .approver != null",
+      "message": "Approved documents require an approver"
+    }
+  ]
+}
+```
+
+If both `assert` and `rules` appear on the same schema object, sugar asserts are
+**merged** into the rule with `context: "."` (created if needed) and evaluated once.
+
+### Nested schema locations
+
+`assert` / `rules` apply to the instance at that schema location. Under
+`properties` / `items`, `.` is the nested value; `$root` remains the full document.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "shipments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [ "weightKg", "method" ],
+        "assert": {
+          "test": ".method != \"air\" or .weightKg <= $root.limits.maxAirKg",
+          "message": "Air shipment \\(.id // \"?\") exceeds max air weight"
+        }
+      }
+    }
+  }
+}
+```
+
+## Messages
+
+`message` is a **jq expression** that should produce a string. If it does not
+start with `"`, Jsontron wraps it as a jq string for you so plain text just works:
+
+```json
+"message": "Discount too low"
+```
+
+Use jq interpolation when you want values in the text (escape backslashes in JSON):
+
+```json
+"message": "Line \\(.sku): qty \\(.qty) exceeds cap"
+```
+
+Or start with `"` yourself for a full jq string expression.
+
+## Registration
+
+```csharp
+MetaSchemas.Register();
+```
+
+That:
+
+1. Extends `Dialect.Default` (and `BuildOptions.Default.Dialect`) with `rules` / `assert`
+2. Registers the vocabulary and meta-schema  
+   (`https://www.schemastore.org/jsontron-0.1.json`)
+
+After `Register()`, ordinary `JsonSchema.FromText` / `Build` calls pick up the keywords
+with no extra `BuildOptions` plumbing.
+
+Keyword syntax is also published as [`schemas/jsontron-0.1.json`](schemas/jsontron-0.1.json).
+
+## Design notes
+
+- **Build-time compile**: invalid keyword shape or invalid jq fails when the schema is built, not on the first instance.
+- **No rule shadowing** (v1): every rule runs (closer to Schematron 2025 `group` than classic pattern shadowing).
+- **Empty context**: if `context` matches nothing, asserts do not run — vacuously valid.
+- **Stack**: JsonSchema.Net 9.x + Devlooped.JQSharp 1.0.2+ (evaluation-time variables for `$root`).
+
 <!-- #content -->
 ---
 <!-- include https://github.com/devlooped/sponsors/raw/main/footer.md -->
