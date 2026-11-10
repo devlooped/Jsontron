@@ -13,6 +13,6 @@
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="..\..\schemas\jsontron-0.1.json" Link="MetaSchemas\jsontron-0.1.json" />
+    <EmbeddedResource Include="..\..\schemas\jsontron-0.2.json" Link="MetaSchemas\jsontron-0.2.json" />
   </ItemGroup>
 </Project>

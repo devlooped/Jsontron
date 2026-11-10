@@ -10,7 +10,7 @@ public static class Vocabulary
     /// <summary>
     /// The Jsontron vocabulary identifier.
     /// </summary>
-    public static readonly Uri Id = new("https://www.schemastore.org/jsontron-0.1.json");
+    public static readonly Uri Id = new("https://www.schemastore.org/jsontron-0.2.json");
 
     /// <summary>
     /// The Jsontron vocabulary (rules + assert + report + let keywords).

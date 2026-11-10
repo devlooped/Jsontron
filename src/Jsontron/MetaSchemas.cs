@@ -12,9 +12,9 @@ namespace Jsontron;
 public static class MetaSchemas
 {
     /// <summary>
-    /// Meta-schema <c>$id</c> / SchemaStore URI for Jsontron 0.1.
+    /// Meta-schema <c>$id</c> / SchemaStore URI for Jsontron 0.2.
     /// </summary>
-    public static readonly Uri JsontronId = new("https://www.schemastore.org/jsontron-0.1.json");
+    public static readonly Uri JsontronId = new("https://www.schemastore.org/jsontron-0.2.json");
 
     /// <summary>
     /// The Jsontron vocabulary meta-schema (keyword syntax).
@@ -63,8 +63,8 @@ public static class MetaSchemas
     {
         var assembly = typeof(MetaSchemas).Assembly;
         var resourceName = assembly.GetManifestResourceNames()
-            .FirstOrDefault(n => n.EndsWith("jsontron-0.1.json", StringComparison.OrdinalIgnoreCase))
-            ?? throw new InvalidOperationException("Embedded meta-schema jsontron-0.1.json not found.");
+            .FirstOrDefault(n => n.EndsWith("jsontron-0.2.json", StringComparison.OrdinalIgnoreCase))
+            ?? throw new InvalidOperationException("Embedded meta-schema jsontron-0.2.json not found.");
 
         using var stream = assembly.GetManifestResourceStream(resourceName)!;
         using var reader = new StreamReader(stream, Encoding.UTF8);

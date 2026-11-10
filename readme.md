@@ -351,12 +351,12 @@ That:
 1. Extends `Dialect.Default` (and `BuildOptions.Default.Dialect`) with
    `rules` / `assert` / `report` / `let`
 2. Registers the vocabulary and meta-schema  
-   (`https://www.schemastore.org/jsontron-0.1.json`)
+   (`https://www.schemastore.org/jsontron-0.2.json`)
 
 After `Register()`, ordinary `JsonSchema.FromText` / `Build` calls pick up the keywords
 with no extra `BuildOptions` plumbing.
 
-Keyword syntax is also published as [`schemas/jsontron-0.1.json`](schemas/jsontron-0.1.json).
+Keyword syntax is also published as [`schemas/jsontron-0.2.json`](schemas/jsontron-0.2.json).
 
 ## Design notes
 

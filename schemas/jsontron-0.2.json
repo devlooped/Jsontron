@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://www.schemastore.org/jsontron-0.1.json",
-  "title": "Jsontron 0.1",
-  "description": "Jsontron vocabulary: Schematron-like rules, assert, report, and let keywords over JSON Schema, using jq expressions.",
+  "$id": "https://www.schemastore.org/jsontron-0.2.json",
+  "title": "Jsontron 0.2",
+  "description": "Jsontron vocabulary: Schematron-like rules, assert, report, and let keywords with id/flag/role metadata, over JSON Schema, using jq expressions.",
   "type": "object",
   "$defs": {
     "assertion": {
