@@ -2,16 +2,64 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://www.schemastore.org/jsontron-0.1.json",
   "title": "Jsontron 0.1",
-  "description": "Jsontron vocabulary: Schematron-like rules and assert keywords over JSON Schema, using jq expressions.",
+  "description": "Jsontron vocabulary: Schematron-like rules, assert, report, and let keywords over JSON Schema, using jq expressions.",
   "type": "object",
+  "$defs": {
+    "assertion": {
+      "type": "object",
+      "required": ["test"],
+      "additionalProperties": false,
+      "properties": {
+        "test": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    },
+    "sugar": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "description": "Shorthand: test and message source are this jq expression."
+        },
+        { "$ref": "#/$defs/assertion" },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "oneOf": [
+              { "type": "string", "minLength": 1 },
+              { "$ref": "#/$defs/assertion" }
+            ]
+          }
+        }
+      ]
+    },
+    "let": {
+      "type": "object",
+      "minProperties": 1,
+      "description": "Object mapping variable names (matching [A-Za-z_][A-Za-z0-9_]*, excluding the reserved 'root') to jq expressions. Entries are evaluated in document order; each takes the first value of its expression (or null if the stream is empty).",
+      "propertyNames": {
+        "pattern": "^(?!root$)[A-Za-z_][A-Za-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
   "properties": {
     "rules": {
       "type": "array",
       "minItems": 1,
-      "description": "Array of rules. Each rule selects context nodes with a jq expression and runs asserts.",
+      "description": "Array of rules. Each rule selects context nodes with a jq expression and runs asserts and/or reports.",
       "items": {
         "type": "object",
-        "required": ["context", "asserts"],
+        "required": ["context"],
         "additionalProperties": false,
         "properties": {
           "context": {
@@ -19,78 +67,37 @@
             "minLength": 1,
             "description": "jq expression evaluated against the current instance; each result is a context node."
           },
+          "let": { "$ref": "#/$defs/let" },
           "asserts": {
             "type": "array",
             "minItems": 1,
-            "items": {
-              "type": "object",
-              "required": ["test"],
-              "additionalProperties": false,
-              "properties": {
-                "test": {
-                  "type": "string",
-                  "minLength": 1,
-                  "description": "jq expression evaluated with . set to the context node. Fails when not jq-truthy."
-                },
-                "message": {
-                  "type": "string",
-                  "description": "jq expression evaluating to a string (interpolation supported). If the value does not start with a double quote, quotes are added implicitly for parsing."
-                }
-              }
-            }
+            "description": "Assertions that FAIL when the test is not jq-truthy (classic Schematron assert).",
+            "items": { "$ref": "#/$defs/assertion" }
+          },
+          "reports": {
+            "type": "array",
+            "minItems": 1,
+            "description": "Assertions that FAIL when the test IS jq-truthy (classic Schematron report).",
+            "items": { "$ref": "#/$defs/assertion" }
           }
-        }
+        },
+        "anyOf": [
+          { "required": ["asserts"] },
+          { "required": ["reports"] }
+        ]
       }
     },
     "assert": {
-      "description": "Sugar for a rule with context \".\". String, object, or array of those; all append to one context=\".\" rule.",
-      "oneOf": [
-        {
-          "type": "string",
-          "minLength": 1,
-          "description": "Shorthand: test and message source are this jq expression."
-        },
-        {
-          "type": "object",
-          "required": ["test"],
-          "additionalProperties": false,
-          "properties": {
-            "test": {
-              "type": "string",
-              "minLength": 1
-            },
-            "message": {
-              "type": "string"
-            }
-          }
-        },
-        {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "oneOf": [
-              {
-                "type": "string",
-                "minLength": 1
-              },
-              {
-                "type": "object",
-                "required": ["test"],
-                "additionalProperties": false,
-                "properties": {
-                  "test": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "message": {
-                    "type": "string"
-                  }
-                }
-              }
-            ]
-          }
-        }
-      ]
+      "description": "Sugar for a rule with context \".\". String, object, or array of those; all append to one context=\".\" rule. Fails when the test is not jq-truthy.",
+      "$ref": "#/$defs/sugar"
+    },
+    "report": {
+      "description": "Sugar for a rule with context \".\" whose test polarity is inverted (Schematron report). Fails when the test IS jq-truthy.",
+      "$ref": "#/$defs/sugar"
+    },
+    "let": {
+      "description": "Schema-level let bindings in scope for every rule at this schema location, alongside $root.",
+      "$ref": "#/$defs/let"
     }
   }
 }

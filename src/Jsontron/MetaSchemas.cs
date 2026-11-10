@@ -40,7 +40,7 @@ public static class MetaSchemas
         {
             var current = SchemaDialect.Default;
             var extended = current.With(
-                [RulesKeyword.Instance, AssertKeyword.Instance],
+                [RulesKeyword.Instance, AssertKeyword.Instance, ReportKeyword.Instance, LetKeyword.Instance],
                 id: current.Id,
                 allowUnknownKeywords: true);
 

@@ -25,7 +25,7 @@ public static class Dialect
     /// </remarks>
     public static SchemaDialect Jsontron { get; } =
         SchemaDialect.Draft202012.With(
-            [RulesKeyword.Instance, AssertKeyword.Instance],
+            [RulesKeyword.Instance, AssertKeyword.Instance, ReportKeyword.Instance, LetKeyword.Instance],
             id: Id,
             allowUnknownKeywords: true);
 }
