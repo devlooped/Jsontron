@@ -84,7 +84,10 @@ static class RuleSetCompiler
             message = test;
         }
 
-        return new AssertSpec(test, message);
+        var id = ParseOptionalLabel(value, "id", $"'{keyword}' id");
+        var flag = ParseFlagOrRole(value, $"'{keyword}'");
+
+        return new AssertSpec(test, message, id, flag);
     }
 
     /// <summary>
@@ -188,7 +191,9 @@ static class RuleSetCompiler
         if (value.TryGetProperty("let", out var letEl))
             lets = ParseLet(letEl);
 
-        return new RuleSpec(context, asserts, reports, lets);
+        var id = ParseOptionalLabel(value, "id", $"'rules[{index}].id'");
+
+        return new RuleSpec(context, asserts, reports, lets, id);
     }
 
     static IReadOnlyList<AssertSpec> ParseRuleItems(JsonElement array, int ruleIndex, string name)
@@ -230,7 +235,10 @@ static class RuleSetCompiler
                 message = test;
             }
 
-            items.Add(new AssertSpec(test, message));
+            var itemId = ParseOptionalLabel(el, "id", $"'rules[{ruleIndex}].{name}[{itemIndex}].id'");
+            var itemFlag = ParseFlagOrRole(el, $"'rules[{ruleIndex}].{name}[{itemIndex}]'");
+
+            items.Add(new AssertSpec(test, message, itemId, itemFlag));
             itemIndex++;
         }
 
@@ -238,6 +246,57 @@ static class RuleSetCompiler
             throw new JsonSchemaException($"'rules[{ruleIndex}].{name}' must not be empty.");
 
         return items;
+    }
+
+    static string? ParseOptionalLabel(JsonElement obj, string property, string displayName)
+    {
+        if (!obj.TryGetProperty(property, out var el))
+            return null;
+
+        if (el.ValueKind is not JsonValueKind.String)
+            throw new JsonSchemaException($"{displayName} must be a string.");
+
+        var value = el.GetString();
+        if (string.IsNullOrWhiteSpace(value))
+            throw new JsonSchemaException($"{displayName} must not be empty.");
+
+        return value.Trim();
+    }
+
+    static string? ParseFlagOrRole(JsonElement obj, string ownerDisplay)
+    {
+        var hasFlag = obj.TryGetProperty("flag", out var flagEl);
+        var hasRole = obj.TryGetProperty("role", out var roleEl);
+
+        if (hasFlag && hasRole)
+            throw new JsonSchemaException(
+                "'flag' and 'role' are mutually exclusive on an assert/report.");
+
+        if (hasFlag)
+        {
+            if (flagEl.ValueKind is not JsonValueKind.String)
+                throw new JsonSchemaException($"{ownerDisplay} flag must be a string.");
+
+            var value = flagEl.GetString();
+            if (string.IsNullOrWhiteSpace(value))
+                throw new JsonSchemaException($"{ownerDisplay} flag must not be empty.");
+
+            return value.Trim();
+        }
+
+        if (hasRole)
+        {
+            if (roleEl.ValueKind is not JsonValueKind.String)
+                throw new JsonSchemaException($"{ownerDisplay} role must be a string.");
+
+            var value = roleEl.GetString();
+            if (string.IsNullOrWhiteSpace(value))
+                throw new JsonSchemaException($"{ownerDisplay} role must not be empty.");
+
+            return value.Trim();
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -294,18 +353,18 @@ static class RuleSetCompiler
             {
                 var test = JqEvaluation.ParseExpression(assert.Test, "test");
                 var message = JqEvaluation.ParseMessage(assert.Message);
-                asserts.Add(new CompiledAssert(test, message, negate: false));
+                asserts.Add(new CompiledAssert(test, message, negate: false, assert.Id, assert.Flag));
             }
 
             foreach (var report in rule.Reports)
             {
                 var test = JqEvaluation.ParseExpression(report.Test, "test");
                 var message = JqEvaluation.ParseMessage(report.Message);
-                asserts.Add(new CompiledAssert(test, message, negate: true));
+                asserts.Add(new CompiledAssert(test, message, negate: true, report.Id, report.Flag));
             }
 
             var lets = CompileLets(rule.Lets);
-            compiledRules.Add(new CompiledRule(context, lets, asserts));
+            compiledRules.Add(new CompiledRule(context, lets, asserts, rule.Id));
         }
 
         return new CompiledRuleSet(compiledRules, CompileLets(schemaLets));

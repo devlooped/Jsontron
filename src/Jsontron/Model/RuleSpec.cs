@@ -7,7 +7,8 @@ readonly record struct RuleSpec(
     string Context,
     IReadOnlyList<AssertSpec> Asserts,
     IReadOnlyList<AssertSpec> Reports,
-    IReadOnlyList<LetSpec> Lets)
+    IReadOnlyList<LetSpec> Lets,
+    string? Id = null)
 {
     public RuleSpec(string context, IReadOnlyList<AssertSpec> asserts)
         : this(context, asserts, [], [])

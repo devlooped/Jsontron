@@ -256,6 +256,49 @@ Semantics:
 - **Reserved**: `$root` is always the document root — `let` cannot bind `root`.
   Names must match `[A-Za-z_][A-Za-z0-9_]*`.
 
+### Severity and identifiers
+
+Rules, asserts, and reports accept optional `id` (human-readable label) and, on
+asserts/reports, `flag` (severity label, with `role` as a Schematron-parity alias).
+These are **additive metadata only** — they do not change pass/fail semantics; they
+prefix the failure message so output is easier to triage.
+
+```json
+{
+  "rules": [
+    {
+      "id": "orders",
+      "context": ".orders[]",
+      "asserts": [
+        {
+          "id": "high-value-discount",
+          "flag": "warning",
+          "test": ".total <= 1000 or .discount >= 0.1",
+          "message": "order \\(.id) discount is below policy"
+        }
+      ]
+    }
+  ],
+  "report": {
+    "id": "forbidden-flag",
+    "role": "error",
+    "test": ".forbidden == true",
+    "message": "forbidden flag set"
+  }
+}
+```
+
+- `id` is any non-empty string.
+- `flag` suggested values: `"error"`, `"warning"`, `"info"` (any non-empty string is accepted; no enum).
+- `role` is the Schematron alias of `flag`. Setting both on the same entry is a build-time error.
+- Prefix order: `[<rule-id>][<assert-id>][flag=<value>] <message>`. Any missing piece is omitted.
+
+For the first assert above on a failing order `O-1`, the message would be:
+
+```
+[orders][high-value-discount][flag=warning] order O-1 discount is below policy
+```
+
 ### Nested schema locations
 
 `assert` / `rules` apply to the instance at that schema location. Under
