@@ -29,7 +29,16 @@ public sealed class AssertKeyword : IKeywordHandler
         }
 
         var asserts = (IReadOnlyList<AssertSpec>)keyword.Value!;
-        keyword.Value = RuleSetCompiler.CompileAssertOnly(asserts);
+
+        IReadOnlyList<AssertSpec> reports = [];
+        if (context.LocalSchema.TryGetProperty("report", out var reportEl))
+            reports = RuleSetCompiler.ParseReport(reportEl);
+
+        IReadOnlyList<LetSpec> lets = [];
+        if (context.LocalSchema.TryGetProperty("let", out var letEl))
+            lets = RuleSetCompiler.ParseLet(letEl);
+
+        keyword.Value = RuleSetCompiler.CompileSugarOnly(asserts, reports, lets);
     }
 
     public KeywordEvaluation Evaluate(KeywordData keyword, EvaluationContext context)

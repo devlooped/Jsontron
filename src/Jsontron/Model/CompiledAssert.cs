@@ -5,8 +5,14 @@ namespace Jsontron;
 /// <summary>
 /// Assert with pre-parsed jq expressions for the test and message.
 /// </summary>
-sealed class CompiledAssert(JqExpression test, JqExpression message)
+/// <remarks>
+/// When <paramref name="negate"/> is <see langword="true"/>, this represents a
+/// <c>report</c>: it fails when the test IS jq-truthy (Schematron report semantics).
+/// Otherwise it fails when the test is NOT truthy (Schematron assert semantics).
+/// </remarks>
+sealed class CompiledAssert(JqExpression test, JqExpression message, bool negate = false)
 {
     public JqExpression Test { get; } = test;
     public JqExpression Message { get; } = message;
+    public bool Negate { get; } = negate;
 }

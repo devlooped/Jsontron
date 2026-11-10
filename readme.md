@@ -27,8 +27,8 @@ the document root, or select a subset of nodes and assert something about each.
 
 **Jsontron** adds that missing layer on top of
 [JsonSchema.Net](https://www.nuget.org/packages/JsonSchema.Net): Schematron-style
-`rules` / `assert` keywords whose `context` and `test` expressions are
-[jq](https://jqlang.org), evaluated by
+`rules`, `assert`, `report`, and `let` keywords whose `context` and `test`
+expressions are [jq](https://jqlang.org), evaluated by
 [Devlooped.JQSharp](https://www.nuget.org/packages/Devlooped.JQSharp).
 
 - Structural validation stays with JSON Schema.
@@ -113,7 +113,8 @@ of inventing another expression language.
 | Document root | `$root` (always bound for context, test, and message) |
 
 An assert **fails** when the test is not jq-truthy (`false`, `null`, or an empty
-stream) — the same idea as Schematron `assert`.
+stream) — the same idea as Schematron `assert`. A `report` is the inverse:
+it fails when the test **is** truthy.
 
 ## Keywords
 
@@ -175,6 +176,86 @@ Forms accepted:
 If both `assert` and `rules` appear on the same schema object, sugar asserts are
 **merged** into the rule with `context: "."` (created if needed) and evaluated once.
 
+### `report` (inverse of `assert`)
+
+`report` is the Schematron counterpart of `assert`: it **fails when the test IS jq-truthy**.
+Use it to call out forbidden states rather than require good ones.
+
+```json
+{
+  "report": {
+    "test": ".password | test(\"(?i)password\")",
+    "message": "password must not contain the word 'password'"
+  }
+}
+```
+
+Shape-wise, `report` is identical to `assert` — string, object `{test, message}`,
+or array of those — and inside a full rule it is a sibling array:
+
+```json
+{
+  "rules": [
+    {
+      "context": ".orders[]",
+      "asserts": [
+        { "test": ".id | type == \"string\"", "message": "order id required" }
+      ],
+      "reports": [
+        { "test": ".total < 0", "message": "order \\(.id) has negative total" }
+      ]
+    }
+  ]
+}
+```
+
+A rule may have `asserts`, `reports`, or both. Top-level `report` sugar alongside
+`rules` merges into the `context: "."` rule just like `assert` does, so you can mix
+all three on the same schema object.
+
+### `let` (variables)
+
+`let` binds `$name` jq variables so expensive expressions, policy lookups, or
+derived values can be computed once and reused. Allowed at the schema level and
+inside each rule object:
+
+```json
+{
+  "let": {
+    "cap": ".policy.maxLineItems",
+    "activeCustomers": ".customers | map(select(.active)) | map(.id)"
+  },
+  "rules": [
+    {
+      "context": ".orders[]",
+      "let": { "lines": ".lineItems | length" },
+      "asserts": [
+        {
+          "test": ".customerId | IN($activeCustomers[])",
+          "message": "customer \\(.customerId) is not active"
+        },
+        {
+          "test": "$lines <= $cap",
+          "message": "order \\(.id) has \\($lines) lines, over cap \\($cap)"
+        }
+      ]
+    }
+  ]
+}
+```
+
+Semantics:
+
+- **Order**: entries evaluate in document order; later bindings see earlier ones.
+- **Scope**: schema-level `let` is visible to every rule at that schema location
+  (context, test, message, and rule-level `let`). Rule-level `let` is scoped to
+  that rule only, evaluated **after** `context` produces each node (so `.` is the
+  context node), and shadows schema-level bindings with the same name for that rule.
+- **Value**: each expression's **first** stream result is bound. If the expression
+  yields an empty stream, `null` is bound.
+- **Reserved**: `$root` is always the document root — `let` cannot bind `root`.
+  Names must match `[A-Za-z_][A-Za-z0-9_]*`.
+
 ### Nested schema locations
 
 `assert` / `rules` apply to the instance at that schema location. Under
@@ -224,7 +305,8 @@ MetaSchemas.Register();
 
 That:
 
-1. Extends `Dialect.Default` (and `BuildOptions.Default.Dialect`) with `rules` / `assert`
+1. Extends `Dialect.Default` (and `BuildOptions.Default.Dialect`) with
+   `rules` / `assert` / `report` / `let`
 2. Registers the vocabulary and meta-schema  
    (`https://www.schemastore.org/jsontron-0.1.json`)
 

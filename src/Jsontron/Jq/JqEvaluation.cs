@@ -9,7 +9,8 @@ static class JqEvaluation
 {
     /// <summary>
     /// Evaluates a compiled rule set against the current evaluation context.
-    /// Binds <c>$root</c> to the document root.
+    /// Binds <c>$root</c> to the document root and applies any schema-level / rule-level
+    /// <c>let</c> bindings.
     /// </summary>
     public static KeywordEvaluation Evaluate(string keyword, CompiledRuleSet ruleSet, EvaluationContext context)
     {
@@ -21,17 +22,27 @@ static class JqEvaluation
 
         try
         {
+            ApplyLets(ruleSet.Lets, context.Instance, variables);
+
             foreach (var rule in ruleSet.Rules)
             {
                 foreach (var node in rule.Context.Evaluate(context.Instance, variables))
                 {
+                    var ruleVariables = rule.Lets.Count == 0
+                        ? variables
+                        : new Dictionary<string, JsonElement>(variables);
+                    if (rule.Lets.Count > 0)
+                        ApplyLets(rule.Lets, node, ruleVariables);
+
                     foreach (var assert in rule.Asserts)
                     {
-                        if (IsTruthy(assert.Test.Evaluate(node, variables)))
+                        var truthy = IsTruthy(assert.Test.Evaluate(node, ruleVariables));
+                        var failed = assert.Negate ? truthy : !truthy;
+                        if (!failed)
                             continue;
 
                         failures ??= [];
-                        failures.Add(EvaluateMessage(assert.Message, node, variables));
+                        failures.Add(EvaluateMessage(assert.Message, node, ruleVariables));
                     }
                 }
             }
@@ -62,6 +73,36 @@ static class JqEvaluation
             Error = string.Join("; ", failures)
         };
     }
+
+    /// <summary>
+    /// Evaluates each let binding in order, taking the first value produced by the expression
+    /// (or <c>null</c> if the stream is empty), and adds it to <paramref name="variables"/>
+    /// so later bindings and asserts can reference <c>$name</c>.
+    /// </summary>
+    static void ApplyLets(
+        IReadOnlyList<CompiledLet> lets,
+        JsonElement input,
+        Dictionary<string, JsonElement> variables)
+    {
+        if (lets.Count == 0)
+            return;
+
+        foreach (var let in lets)
+        {
+            JsonElement bound = default;
+            var any = false;
+            foreach (var result in let.Expression.Evaluate(input, variables))
+            {
+                bound = result;
+                any = true;
+                break;
+            }
+
+            variables[let.Name] = any ? bound : JsonNull;
+        }
+    }
+
+    static readonly JsonElement JsonNull = JsonDocument.Parse("null").RootElement;
 
     /// <summary>
     /// jq truthiness: empty stream or any falsey value fails the assert.
