@@ -42,7 +42,8 @@ static class JqEvaluation
                             continue;
 
                         failures ??= [];
-                        failures.Add(EvaluateMessage(assert.Message, node, ruleVariables));
+                        var message = EvaluateMessage(assert.Message, node, ruleVariables);
+                        failures.Add(ComposePrefix(rule.Id, assert.Id, assert.Flag) + message);
                     }
                 }
             }
@@ -103,6 +104,26 @@ static class JqEvaluation
     }
 
     static readonly JsonElement JsonNull = JsonDocument.Parse("null").RootElement;
+
+    /// <summary>
+    /// Builds the bracketed prefix for a failure message: <c>[ruleId][assertId][flag=value] </c>.
+    /// Returns an empty string when none of the three labels are set.
+    /// </summary>
+    static string ComposePrefix(string? ruleId, string? assertId, string? flag)
+    {
+        if (ruleId is null && assertId is null && flag is null)
+            return "";
+
+        var sb = new StringBuilder();
+        if (ruleId is not null)
+            sb.Append('[').Append(ruleId).Append(']');
+        if (assertId is not null)
+            sb.Append('[').Append(assertId).Append(']');
+        if (flag is not null)
+            sb.Append("[flag=").Append(flag).Append(']');
+        sb.Append(' ');
+        return sb.ToString();
+    }
 
     /// <summary>
     /// jq truthiness: empty stream or any falsey value fails the assert.

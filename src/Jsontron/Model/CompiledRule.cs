@@ -9,9 +9,11 @@ namespace Jsontron;
 sealed class CompiledRule(
     JqExpression context,
     IReadOnlyList<CompiledLet> lets,
-    IReadOnlyList<CompiledAssert> asserts)
+    IReadOnlyList<CompiledAssert> asserts,
+    string? id = null)
 {
     public JqExpression Context { get; } = context;
     public IReadOnlyList<CompiledLet> Lets { get; } = lets;
     public IReadOnlyList<CompiledAssert> Asserts { get; } = asserts;
+    public string? Id { get; } = id;
 }
