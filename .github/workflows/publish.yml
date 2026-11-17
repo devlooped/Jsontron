@@ -1,6 +1,6 @@
-﻿# Builds a final release version and pushes to nuget.org 
+# Builds a final release version and pushes to nuget.org
 # whenever a release is published.
-# Requires: secrets.NUGET_API_KEY
+# Requires: vars.NUGET_OIDC or secrets.NUGET_OIDC (nuget.org username for OIDC trusted publishing)
 
 name: publish
 on:
@@ -16,10 +16,13 @@ env:
   GH_TOKEN: ${{ secrets.GH_TOKEN }}
   MSBUILDTERMINALLOGGER: auto
   SLEET_FEED_URL: https://api.nuget.org/v3/index.json
-      
+
 jobs:
   publish:
     runs-on: ${{ vars.PUBLISH_AGENT || 'ubuntu-latest' }}
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: 🤘 checkout
         uses: actions/checkout@v4
@@ -54,12 +57,30 @@ jobs:
             exit 1
           }
 
+      # Trusted publishing policy on https://www.nuget.org/account/trustedpublishing:
+      #   Package owner: Devlooped
+      #   Repository: devlooped/Jsontron
+      #   Workflow file: publish.yml
+      #   Environment: (none)
+      # NUGET_OIDC is the nuget.org user that created the policy (kzu), not the
+      # Devlooped organization: nuget.org rejects token exchange for an organization.
+      # https://learn.microsoft.com/nuget/nuget-org/trusted-publishing
+      - name: 🔑 nuget login
+        id: login
+        env:
+          NUGET_OIDC: ${{ vars.NUGET_OIDC || secrets.NUGET_OIDC }}
+        if: ${{ env.NUGET_OIDC != '' && github.event.action != 'prereleased' }}
+        uses: NuGet/login@v1
+        with:
+          user: ${{ vars.NUGET_OIDC || secrets.NUGET_OIDC }}
+
       - name: 🚀 nuget
         env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
-        if: ${{ env.NUGET_API_KEY != '' && github.event.action != 'prereleased' }}
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+        if: ${{ steps.login.outcome == 'success' }}
+        shell: pwsh
         working-directory: bin
-        run: dotnet nuget push *.nupkg -s https://api.nuget.org/v3/index.json -k ${{secrets.NUGET_API_KEY}} --skip-duplicate
+        run: dotnet nuget push *.nupkg -s https://api.nuget.org/v3/index.json -k $env:NUGET_API_KEY --skip-duplicate
 
       - name: 🚀 sleet
         env:
